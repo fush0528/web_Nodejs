@@ -1,84 +1,203 @@
-# 🌐 Next.js Full Stack Tutorial
+# ✅ Next.js Full Stack Tutorial (Step 3: CI + Prisma Todo)
 
-這是從零開始建立的 Next.js 全端開發教學專案。  
-包含環境設定、專案初始化、GitHub 推送與基本運行說明。  
+本階段專案示範如何在 Next.js 專案中：
+1. 建立 **GitHub Actions** 自動檢查（CI）
+2. 整合 **Prisma + SQLite** 建立全端 Todo 系統
 
 ---
+
+## 🚀 專案架構
+
+
 
 ## 🧰 1. 開發環境需求
 
-請先安裝以下工具：
+---
 
-| 工具 | 建議版本 | 說明 |
-|------|-----------|------|
-| [Node.js](https://nodejs.org) | ≥ 18 (LTS) | JavaScript 執行環境 |
-| [npm](https://www.npmjs.com/) | ≥ 9 | Node 套件管理工具 |
-| [Git](https://git-scm.com/downloads) | 最新 | 版本控制工具 |
-| [VS Code](https://code.visualstudio.com/) | 最新 | 推薦的開發編輯器 |
-| [Git Bash](https://gitforwindows.org/) | 最新 | 推薦的終端機（Windows 用） |
+
+### 資料夾配置
+```bash
+nextjs-fullstack-tutorial/
+┣ app/
+┃ ┣ actions.ts ← Server Actions：新增 / 修改 / 刪除任務
+┃ ┣ page.tsx ← 首頁頁面（顯示 + 表單）
+┃ ┗ layout.tsx
+┣ lib/
+┃ ┗ prisma.ts ← Prisma Client 設定
+┣ prisma/
+┃ ┗ schema.prisma ← Prisma 資料模型
+┣ .github/
+┃ ┗ workflows/
+┃ ┗ ci.yml ← GitHub Actions 自動檢查設定
+┣ .env
+┣ package.json
+┗ README.md
+```
+
 
 ---
 
-## 🚀 2. 建立專案步驟
+## ⚙️ 1. 加入 GitHub Actions（CI 自動檢查）
 
-### (1) 建立資料夾並初始化專案
+在專案根目錄建立檔案：  
+📁 `.github/workflows/ci.yml`
 
-```bash
-# 建立主資料夾
-mkdir nextjs-fullstack-tutorial
-cd nextjs-fullstack-tutorial
+```yaml
+name: CI
 
-## 使用 create-next-app 建立專案
-npx create-next-app@latest app
+on:
+  push:
+  pull_request:
 
-✔ TypeScript: Yes
-✔ ESLint: Yes
-✔ Tailwind CSS: Yes
-✔ src/ directory: No
-✔ App Router: Yes
-✔ Import alias (@/*): Yes
+jobs:
+  build-and-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck --if-present
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Build
+        run: npm run build --if-present
 ```
-### (2) 啟動開發伺服器
-cd app
+### 在 package.json 新增：
+
+
+```
+"scripts": {
+  "typecheck": "tsc --noEmit"
+}
+```
+
+這樣每次 push / PR 時，GitHub 會自動：
+
+: 執行 TypeScript 型別檢查
+
+: 檢查 ESLint
+
+: 嘗試 build 專案
+
+# 🗃️ 2. Prisma + SQLite：建立 Todo 功能
+## (1) 安裝與初始化
+```
+npm install prisma @prisma/client
+npx prisma init --datasource-provider sqlite
+```
+## (2) 編輯 prisma/schema.prisma
+```
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Task {
+  id        Int      @id @default(autoincrement())
+  title     String
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+```
+
+## (3) 建立資料庫
+
+```
+npx prisma migrate dev --name init_tasks
+
+```
+# 🧠 3. Prisma 設定
+## 📁 新增 lib/prisma.ts
+
+```
+import { PrismaClient } from "@prisma/client";
+
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+
+export const prisma =
+  globalForPrisma.prisma ||
+  new PrismaClient({
+    log: ["error", "warn"],
+  });
+
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+
+```
+# 🧩 4. Server Actions 與頁面
+## 📄 app/actions.ts
+
+
+
+```
+"use server";
+import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
+
+export async function createTask(formData: FormData) {
+  const title = (formData.get("title") as string)?.trim();
+  if (!title) return;
+  await prisma.task.create({ data: { title } });
+  revalidatePath("/");
+}
+
+export async function toggleTask(id: number, done: boolean) {
+  await prisma.task.update({ where: { id }, data: { done } });
+  revalidatePath("/");
+}
+
+export async function deleteTask(id: number) {
+  await prisma.task.deleteMany({ where: { id } }); // 不拋錯刪除
+  revalidatePath("/");
+}
+
+```
+## 📄 app/page.tsx
+
+```
+"use server";
+import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
+
+export async function createTask(formData: FormData) {
+  const title = (formData.get("title") as string)?.trim();
+  if (!title) return;
+  await prisma.task.create({ data: { title } });
+  revalidatePath("/");
+}
+
+export async function toggleTask(id: number, done: boolean) {
+  await prisma.task.update({ where: { id }, data: { done } });
+  revalidatePath("/");
+}
+
+export async function deleteTask(id: number) {
+  await prisma.task.deleteMany({ where: { id } }); // 不拋錯刪除
+  revalidatePath("/");
+}
+
+```
+## 🧪 5. 啟動開發伺服器
+```
 npm run dev
 ```
-cd app
-npm run dev
-```
-打開瀏覽器進入 http://localhost:3000
-，
-應該能看到 Welcome to Next.js!
 
-## 📄 3. 建立 README.md
-
-```
-echo "# Next.js Full Stack Tutorial
-這是教學用專案，將示範 Next.js + Tailwind + Prisma + Auth 全端整合開發。
-" > README.md
-
-```
-## 4. 初始化 Git 與推送到 GitHub
-### (1) 初始化 Git
-```
-git init
-git add .
-git commit -m "chore: init Next.js project"
-
-```
-
-## (2) 連接 GitHub 遠端儲存庫
-
-### 在 GitHub 新建一個空的 repository（例如：nextjs-fullstack-tutorial）
-不要勾選 README。
-
-然後在本地執行：
-```
-git branch -M main
-git remote add origin https://github.com/<你的帳號>/nextjs-fullstack-tutorial.git
-git push -u origin main
-
-```
-
-
-
+# 打開 http://localhost:3000
 
