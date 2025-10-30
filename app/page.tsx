@@ -1,95 +1,82 @@
-
-"use client";
-
-import { useEffect, useState } from "react";
+import type { Task } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { createTask, toggleTask, deleteTask } from "./actions";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 
-interface Task {
-  id: number;
-  title: string;
-  done: boolean;
-  createdAt: Date;
-}
-
-export default function Home() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function fetchTasks() {
-      try {
-        const response = await fetch('/api/tasks');
-        if (!response.ok) {
-          throw new Error('Failed to fetch tasks');
-        }
-        const data = await response.json();
-        setTasks(data);
-      } catch (err) {
-        console.error('Error fetching tasks:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load tasks');
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    fetchTasks();
-  }, []);
-
-  if (error) {
-    return <div className="text-red-500">Error: {error}</div>;
-  }
-
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
+export default async function Home() {
+  const tasks: Task[] = await prisma.task.findMany({
+    orderBy: { createdAt: "desc" },
+  });
 
   return (
-    <main className="max-w-xl mx-auto p-6 space-y-6">
-      <h1 className="text-3xl font-bold">Tasks</h1>
+    <main className="max-w-2xl mx-auto p-8 space-y-6">
+      <h1 className="text-4xl font-extrabold text-neutral-800 mb-4">
+        🌿 My Task List
+      </h1>
 
-      <form action={createTask} className="flex gap-2">
+      <form
+        action={createTask}
+        className="flex gap-3 bg-neutral-50 p-4 rounded-lg shadow-sm"
+      >
         <input
           name="title"
-          placeholder="Add a task..."
-          className="flex-1 border rounded px-3 py-2"
+          placeholder="Add a new task..."
+          className="flex-1 border border-neutral-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-neutral-500"
         />
-        <button type="submit" className="px-4 py-2 rounded bg-black text-white">
+        <Button className="bg-neutral-900 hover:bg-neutral-700 text-white font-semibold">
           Add
-        </button>
+        </Button>
       </form>
 
-      <ul className="space-y-2">
+      <div className="space-y-3">
         {tasks.map((task) => (
-          <li
+          <Card
             key={task.id}
-            className="flex items-center justify-between border rounded px-3 py-2"
+            className="hover:shadow-md transition-all border border-neutral-200"
           >
-            <form
-              action={toggleTask.bind(null, task.id, !task.done)}
-              className="flex items-center gap-2"
-            >
-              {/* 避免空 onChange 觸發 ESLint，可直接移除 onChange */}
-              <input type="checkbox" defaultChecked={task.done} />
-              <span className={task.done ? "line-through text-gray-500" : ""}>
-                {task.title}
-              </span>
-              <button className="text-sm underline" type="submit">
-                Toggle
-              </button>
-            </form>
+            <CardContent className="flex items-center justify-between p-4">
+              <form
+                action={async () => {
+                  "use server";
+                  await toggleTask(task.id, !task.done);
+                }}
+                className="flex items-center gap-3"
+              >
+                <Checkbox
+                  defaultChecked={task.done}
+                  className="border-neutral-400 data-[state=checked]:bg-neutral-800"
+                />
+                <span
+                  className={`text-lg font-medium ${
+                    task.done
+                      ? "line-through text-neutral-400"
+                      : "text-neutral-800"
+                  }`}
+                >
+                  {task.title}
+                </span>
+              </form>
 
-            <form
-              action={deleteTask.bind(null, task.id)}
-            >
-              <button className="text-sm text-red-600 underline" type="submit">
-                Delete
-              </button>
-            </form>
-          </li>
+              <form
+                action={async () => {
+                  "use server";
+                  await deleteTask(task.id);
+                }}
+              >
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="font-semibold hover:bg-red-600"
+                >
+                  Delete
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
         ))}
-      </ul>
+      </div>
     </main>
   );
 }
