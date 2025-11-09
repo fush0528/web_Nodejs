@@ -1,6 +1,3 @@
-export const dynamic = 'force-dynamic'; // 或改用：export const revalidate = 0
-
-
 import type { Task } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { createTask, toggleTask, deleteTask } from "./actions";

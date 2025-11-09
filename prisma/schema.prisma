@@ -7,12 +7,25 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
+  url      = env("DATABASE_URL")
 }
+
+
+model User {
+  id           Int    @id @default(autoincrement())
+  name        String?
+  email       String  @unique
+  password    String
+  tasks       Task[]
+  createdAt   DateTime @default(now())
+}
+
 
 model Task {
   id        Int      @id @default(autoincrement())
   title     String
   done      Boolean  @default(false)
   createdAt DateTime @default(now())
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id])
 }
