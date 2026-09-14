@@ -1,5 +1,7 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Prisma schema
+// SQLite 不支援 enum，所以 role 以 String 儲存，
+// 合法值由 lib/roles.ts 的 Role 型別約束。
+// 之後換成 PostgreSQL 時可改寫為真正的 enum（見 README）。
 
 generator client {
   provider = "prisma-client-js"
@@ -10,22 +12,28 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 model User {
-  id           Int    @id @default(autoincrement())
-  name        String?
-  email       String  @unique
-  password    String
-  tasks       Task[]
-  createdAt   DateTime @default(now())
+  id        Int      @id @default(autoincrement())
+  name      String?
+  email     String   @unique
+  password  String // bcrypt hash，永遠不會以明文儲存
+  role      String   @default("USER") // "USER" | "ADMIN"
+  tasks     Task[]
+  createdAt DateTime @default(now())
 }
-
 
 model Task {
   id        Int      @id @default(autoincrement())
   title     String
   done      Boolean  @default(false)
   createdAt DateTime @default(now())
-  userId    Int?
-  user      User?    @relation(fields: [userId], references: [id])
+  updatedAt DateTime @updatedAt
+
+  // userId 為必填：每一筆 Task 一定屬於某個使用者。
+  // onDelete: Cascade 確保刪除使用者時不會留下孤兒資料。
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 依擁有者查詢是最頻繁的操作，建立索引。
+  @@index([userId])
 }
