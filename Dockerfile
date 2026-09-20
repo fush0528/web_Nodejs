@@ -22,4 +22,4 @@ COPY --from=build /app/scripts ./scripts
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
 EXPOSE 3000
-CMD ["sh", "-c", "npx prisma migrate deploy && node scripts/docker-seed.cjs && npm run start"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node scripts/docker-seed.mjs && npm run start"]

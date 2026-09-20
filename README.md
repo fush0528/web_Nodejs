@@ -159,13 +159,13 @@ docker compose up --build
 `Dockerfile` 的 `CMD` 依序執行三件事：
 
 ```dockerfile
-CMD ["sh", "-c", "npx prisma migrate deploy && node scripts/docker-seed.cjs && npm run start"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node scripts/docker-seed.mjs && npm run start"]
 ```
 
 | 步驟 | 指令 | 作用 |
 |---|---|---|
 | 1 | `prisma migrate deploy` | 在 volume 的 SQLite 建立資料表 |
-| 2 | `node scripts/docker-seed.cjs` | 首次啟動時寫入示範帳號 |
+| 2 | `node scripts/docker-seed.mjs` | 首次啟動時寫入示範帳號 |
 | 3 | `npm run start` | 啟動 Next.js |
 
 第一次啟動的 log 會出現：
@@ -187,7 +187,7 @@ All migrations have been successfully applied.
 - 定義 seed 指令的 `prisma.config.ts` 沒有被複製進 runner
 - `seed.ts` 裡有 `prisma.task.deleteMany({})`，拿來當啟動指令的話每次重啟都會清空所有待辦事項
 
-`scripts/docker-seed.cjs` 是純 CommonJS，只依賴容器裡本來就有的 `@prisma/client` 與 `bcrypt`，不需要任何額外相依，且先檢查 User 筆數再決定是否寫入。
+`scripts/docker-seed.mjs` 使用 ES Module 格式，只依賴容器裡本來就有的 `@prisma/client` 與 `bcrypt`，不需要任何額外相依，且先檢查 User 筆數再決定是否寫入。
 
 ### 本機與容器是兩個獨立的資料庫
 
@@ -207,7 +207,7 @@ docker compose up --build # 重新建表並 seed
 
 ### 部署前
 
-在 `docker-compose.yml` 或平台的環境變數中更換 `NEXTAUTH_SECRET`，並移除或改寫 `scripts/docker-seed.cjs` 的示範帳號。
+在 `docker-compose.yml` 或平台的環境變數中更換 `NEXTAUTH_SECRET`，並移除或改寫 `scripts/docker-seed.mjs` 的示範帳號。
 
 ---
 
@@ -333,7 +333,7 @@ prisma/
 ├── migrations/
 └── seed.ts                       本機用（需要 tsx）
 scripts/
-└── docker-seed.cjs               容器啟動時用（純 CJS、冪等）
+└── docker-seed.mjs               容器啟動時用（純 CJS、冪等）
 middleware.ts                     目前為 pass-through，見上方說明
 Dockerfile
 docker-compose.yml
@@ -376,4 +376,4 @@ model User {
 `lib/roles.ts` 的 `Role` 型別與 `toRole()` 不需更動。
 
 改用 PostgreSQL 後，`docker-compose.yml` 需增加 db service，並把 `DATABASE_URL` 指向它；
-`scripts/docker-seed.cjs` 不需修改，Prisma Client 的 API 在兩種資料庫下相同。
+`scripts/docker-seed.mjs` 不需修改，Prisma Client 的 API 在兩種資料庫下相同。
