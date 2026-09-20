@@ -1,12 +1,19 @@
 import { prisma } from "@/lib/prisma";
 import { ownerScope, requireUser } from "@/lib/guard";
-import { toggleTask, deleteTask } from "./actions";
 import { TaskForm } from "@/components/task-form";
+import { TaskItem } from "@/components/task-item";
 import { SignOutButton } from "@/components/sign-out-button";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+
 
 export default async function Home() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) redirect("/login");
+
+
   const user = await requireUser();
 
   // 關鍵修正：原本是 prisma.task.findMany()，沒有任何條件，
@@ -44,63 +51,8 @@ export default async function Home() {
           {tasks.map((task) => (
             <li key={task.id}>
               <Card className="border border-neutral-200">
-                <CardContent className="flex items-center justify-between gap-4 p-4">
-                  {/*
-                    原本這裡用 Radix 的 Checkbox 包在 form 裡，
-                    但 Radix 會把 root 渲染成 type="button"，不會觸發送出，
-                    所以勾選其實沒有任何作用。改為真正的 submit 按鈕。
-                  */}
-                  <form
-                    action={async () => {
-                      "use server";
-                      await toggleTask(task.id, !task.done);
-                    }}
-                    className="min-w-0 flex-1"
-                  >
-                    <button
-                      type="submit"
-                      aria-pressed={task.done}
-                      className="flex w-full items-center gap-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500"
-                    >
-                      <span
-                        aria-hidden
-                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
-                          task.done
-                            ? "border-neutral-800 bg-neutral-800 text-white"
-                            : "border-neutral-400"
-                        }`}
-                      >
-                        {task.done && "✓"}
-                      </span>
-                      <span className="min-w-0">
-                        <span
-                          className={`block truncate ${
-                            task.done
-                              ? "text-neutral-400 line-through"
-                              : "text-neutral-800"
-                          }`}
-                        >
-                          {task.title}
-                        </span>
-                        {showOwner && (
-                          <span className="block text-xs text-neutral-500">
-                            {task.user.email}
-                          </span>
-                        )}
-                      </span>
-                    </button>
-                  </form>
-
-                  <form
-                    action={async () => {
-                      "use server";
-                      await deleteTask(task.id);
-                    }}
-                  >
-                    <Button variant="destructive" size="sm">
-                      刪除
-                    </Button>
-                  </form>
+                <CardContent className="p-0">
+                  <TaskItem task={task} showOwner={showOwner} />
                 </CardContent>
               </Card>
             </li>

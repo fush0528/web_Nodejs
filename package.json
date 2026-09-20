@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/validations.test.ts"
   },
   "dependencies": {
     "@next-auth/prisma-adapter": "^1.0.7",

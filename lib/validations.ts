@@ -32,4 +32,14 @@ export const taskTitleSchema = z
 
 export const taskIdSchema = z.coerce.number().int().positive();
 
+/** REST API 的更新內容：至少要修改一個欄位。 */
+export const taskPatchSchema = z
+  .object({
+    title: taskTitleSchema.optional(),
+    done: z.boolean().optional(),
+  })
+  .refine((value) => value.title !== undefined || value.done !== undefined, {
+    message: "請提供 title 或 done",
+  });
+
 export type RegisterInput = z.infer<typeof registerSchema>;

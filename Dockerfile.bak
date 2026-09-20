@@ -1,0 +1,26 @@
+FROM node:20-alpine AS base
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+
+FROM base AS build
+COPY . .
+# Prisma 在 generate 階段會讀取設定；正式連線字串由 docker-compose
+# 啟動容器時的 environment 覆蓋，不會把此值用於實際資料。
+ENV DATABASE_URL="file:./dev.db"
+ENV NEXTAUTH_SECRET="build-time-placeholder-not-used-at-runtime"
+ENV NEXTAUTH_URL="http://localhost:3000"
+RUN npx prisma generate && npm run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /app/package.json /app/package-lock.json ./
+RUN npm ci --omit=dev
+COPY --from=build /app/.next ./.next
+COPY --from=build /app/public ./public
+COPY --from=build /app/prisma ./prisma
+COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
+EXPOSE 3000
+CMD ["sh", "-c", "npx prisma migrate deploy && node scripts/docker-seed.cjs && npm run start"]
